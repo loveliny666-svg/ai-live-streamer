@@ -60,6 +60,16 @@ OCR 那条链路没删，作为兜底：`danmaku.sources.ocr.fallback_only: true
 
 ---
 
+## 环境要求
+
+| 需要 | 说明 |
+|---|---|
+| **Windows 10 / 11** | 大量调用 Win32 API（找窗口、按会话改音量、截图 OCR）。**不支持 macOS / Linux**，别在别的系统上试。 |
+| Python 3.11+ | 开发时用 3.13 验证过 |
+| Chrome 或 Edge | 渲染舞台页、旁听直播间。程序会自己找，也可以用 `stage.browser` 指定 |
+| 抖音直播伴侣 | 推流靠它。程序只是替你去点它的按钮，不碰推流协议 |
+| 可选：Ollama + qwen3:8b | 本地模型，云端额度用完时接管。不装也能跑（退回规则脑） |
+
 ## 0. 画面长什么样
 
 它不是一个"静静写代码"的画面，而是一个**游戏化的打工直播间**：
@@ -281,19 +291,49 @@ audio:
 
 ## 4. 五步开播
 
-### 第 1 步：填 Key + 装本地模型
+### 第 0 步：拿代码、装依赖、准备配置
 
-**云端 Key**（脑子，有额度限制）：
+```bash
+git clone https://github.com/loveliny666-svg/ai-live-streamer.git
+cd ai-live-streamer
+pip install -r requirements.txt
+```
+
+**把配置模板复制一份出来，改那一份**：
+
+```bash
+copy config.example.yaml config.yaml      # Windows
+cp config.example.yaml config.yaml       # macOS / Linux
+```
+
+`config.yaml` 已写进 `.gitignore` —— 你填的房间号、软件路径、机器相关的东西都不会跟着仓库走，也不会在你哪天提 PR 的时候被带上去。
+
+### 第 1 步：设 API Key + 装本地模型
+
+**Key 绝对不要写进 `config.yaml`。** 那个文件是公开仓库的一部分，写进去等于当着所有人的面把 key 贴出来。
+
+用环境变量：
+
+```bash
+# Windows：设完必须重开一个终端（或者重启）才生效
+setx LLM_API_KEY "sk-你的key"
+
+# macOS / Linux：想持久化就写进 ~/.bashrc 或 ~/.zshrc
+export LLM_API_KEY="sk-你的key"
+```
+
+代码读 key 的顺序是：`config.yaml` 的 `api_key` → 环境变量 → `data/.api_key` 文件。
+三个都空它会直接说你「没有填 API Key」。想换厂商只改 `provider`：
 
 ```yaml
 llm:
   provider: "agnes"         # agnes / deepseek / qwen / zhipu / moonshot / openai / gemini / ollama ...
-  api_key: "sk-xxxx"        # 或设环境变量 LLM_API_KEY（推荐）
+  api_key: ""               # 留空，靠环境变量
   model: "agnes-3.0-flash"
   rpm: 9                    # 免费用户上限 10 次/分钟，留一点余量
 ```
 
-**本地模型**（嘴，额度用完时接管简单回复，不花钱）：
+**本地模型**（额度用完时接管简单回复，不花钱）：
 
 ```bash
 # 1. 装 Ollama：https://ollama.com/download
@@ -319,15 +359,24 @@ llm:
 
 ```yaml
 danmaku:
-  room_url: "https://live.douyin.com/123456789"
+  room_url: "https://live.douyin.com/123456789012"
 ```
 
-在直播伴侣「主播中心」里能看到自己的直播间链接。
+打开抖音网页版、进你自己的直播间，地址栏 `https://live.douyin.com/` 后面那串数字就是房间号。
+填错了不会崩，但收不到弹幕（只剩直播伴侣面板 OCR 那条兜底的路）。
 
 ### 第 3 步：双击 `run.bat`（会自动请求管理员权限）
 
 直播伴侣的安装清单要求管理员权限，不提权就没法自动启动它、也没法点它的按钮。
 脚本会弹一次 UAC，允许即可。
+
+如果你的直播伴侣装在别处，记得把 `config.yaml` 里这一行填上，否则程序不会帮你启动它
+（留空 = 你自己先打开直播伴侣，程序只负责开播和收弹幕，一样能用）：
+
+```yaml
+companion:
+  exe_path: "C:/Program Files/你的路径/直播伴侣 Launcher.exe"
+```
 
 启动后：
 
@@ -564,8 +613,9 @@ python tests/selftest_e2e.py
 ## 10. 目录
 
 ```
-config.yaml                 全部配置（改这里，不用改代码）
+config.example.yaml         配置模板 —— 复制成 config.yaml 再改（仓库里没有带真实值的 config.yaml）
 run.bat                     一键启动（自动提权）
+guard.bat                   守护启动：进程挂了 8 秒后自动拉起来
 app/
   __main__.py               入口：uvicorn + 运行时 + 舞台窗口
   runtime.py                总装 + 四条循环 + 工具执行

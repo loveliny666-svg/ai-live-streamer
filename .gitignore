@@ -15,7 +15,9 @@ env/
 .workbuddy/
 .workbuddy-ai/
 
-# 本地配置备份
+# 真实配置：里面有你的直播间房间号、直播伴侣安装路径。
+# 仓库里放的是脱敏模板 config.example.yaml，首次使用复制一份再改。
+config.yaml
 config.local.yaml
 *.local
 
