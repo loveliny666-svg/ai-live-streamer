@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<title>直播舞台</title>
+<link rel="stylesheet" href="/static/stage.css?v=4" />
+</head>
+<body data-scene="coding">
+<div id="viewport">
+  <div id="stage">
+
+    <!-- ================= 房间 ================= -->
+    <div class="room"></div>
+    <div class="wall-lines"></div>
+
+    <div class="lights">
+      <svg viewBox="0 0 1920 200" preserveAspectRatio="none">
+        <path d="M0,24 C 320,110 640,8 960,70 C 1280,132 1600,24 1920,82"
+              fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="2"/>
+        <g fill="#ffd9a8">
+          <circle class="bulb" cx="120" cy="52" r="5"/>
+          <circle class="bulb" cx="268" cy="72" r="5"/>
+          <circle class="bulb" cx="416" cy="58" r="5"/>
+          <circle class="bulb" cx="560" cy="40" r="5"/>
+          <circle class="bulb" cx="700" cy="36" r="5"/>
+          <circle class="bulb" cx="848" cy="56" r="5"/>
+          <circle class="bulb" cx="996" cy="76" r="5"/>
+          <circle class="bulb" cx="1148" cy="72" r="5"/>
+          <circle class="bulb" cx="1296" cy="48" r="5"/>
+          <circle class="bulb" cx="1444" cy="38" r="5"/>
+          <circle class="bulb" cx="1592" cy="50" r="5"/>
+          <circle class="bulb" cx="1740" cy="68" r="5"/>
+          <circle class="bulb" cx="1880" cy="76" r="5"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="floor"></div>
+    <div class="floor-glow"></div>
+    <div class="dust" id="dust"></div>
+    <div class="monitor-glow"></div>
+
+    <!-- ================= 显示器 ================= -->
+    <div class="monitor">
+      <div class="screen">
+        <div class="layer" id="codeLayer">
+          <div class="editor">
+            <div class="tabbar" id="tabbar">
+              <div class="tab active"><span class="dot py"></span> <span id="tabNow">boss_requirement.py</span></div>
+              <div class="tab"><span class="dot js"></span> fix_bug_final_final.js</div>
+              <div class="tab"><span class="dot md"></span> README.md</div>
+            </div>
+            <div class="code-area">
+              <div class="code-scroll" id="codeScroll"></div>
+            </div>
+            <div class="term" id="term">
+              <div class="term-line"><span class="dim">$</span><span>pytest -q</span></div>
+              <div class="term-line"><span class="ok">✓</span><span class="ok">42 passed</span><span class="dim">in 1.28s</span></div>
+              <div class="term-line"><span class="dim">$</span><span class="dim">_</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer" id="gameLayer">
+          <canvas id="pvzCanvas" width="1084" height="634"></canvas>
+          <canvas id="snakeCanvas" width="1084" height="634" style="display:none"></canvas>
+          <canvas id="tetrisCanvas" width="1084" height="634" style="display:none"></canvas>
+          <canvas id="game2048Canvas" width="1084" height="634" style="display:none"></canvas>
+          <canvas id="tankCanvas" width="1084" height="634" style="display:none"></canvas>
+          <canvas id="csCanvas" width="1084" height="634" style="display:none"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 角色 ================= -->
+    <div id="charWrap">
+      <div class="char-pose">
+        <img class="char-img" src="/static/assets/xiaofan.png" alt="" draggable="false" />
+      </div>
+      <div class="sweat" id="sweat"></div>
+    </div>
+
+
+    <div class="floor-light"></div>
+
+    <!-- 房间小道具（不说话，只是让工位像有人住） -->
+    <div class="prop box">
+      <div class="b-top"></div><div class="b-front"></div><div class="b-side"></div>
+      <div class="b-tape"></div>
+    </div>
+
+    <div class="prop plant2">
+      <svg viewBox="0 0 120 150">
+        <ellipse cx="60" cy="144" rx="38" ry="7" fill="rgba(0,0,0,0.35)"/>
+        <path d="M40,96 L80,96 L88,142 L32,142 Z" fill="#5b4a3d"/>
+        <path d="M40,96 L80,96 L78,106 L42,106 Z" fill="#6d5a4b"/>
+        <path d="M60,96 C 58,72 52,58 34,48" stroke="#3f7a52" stroke-width="4" fill="none"/>
+        <path d="M60,96 C 62,70 70,54 90,44" stroke="#3f7a52" stroke-width="4" fill="none"/>
+        <path d="M60,96 C 60,74 60,58 60,34" stroke="#3f7a52" stroke-width="4" fill="none"/>
+        <g fill="#4f9a68">
+          <ellipse cx="30" cy="44" rx="22" ry="11" transform="rotate(-28 30 44)"/>
+          <ellipse cx="94" cy="40" rx="22" ry="11" transform="rotate(24 94 40)"/>
+          <ellipse cx="58" cy="26" rx="19" ry="12"/>
+          <ellipse cx="16" cy="66" rx="15" ry="8" transform="rotate(-48 16 66)"/>
+          <ellipse cx="104" cy="62" rx="15" ry="8" transform="rotate(44 104 62)"/>
+        </g>
+        <g fill="#63b57c" opacity="0.85">
+          <ellipse cx="44" cy="52" rx="12" ry="6" transform="rotate(-18 44 52)"/>
+          <ellipse cx="80" cy="50" rx="12" ry="6" transform="rotate(16 80 50)"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- ================= HUD ================= -->
+    <div class="hud">
+      <div class="pill live"><span class="live-dot"></span><span>LIVE</span></div>
+      <div class="pill"><span class="k">专注</span><span class="v" id="hudFocus">00:00:00</span></div>
+      <div class="pill"><span class="k">在线</span><span class="v" id="hudOnline">0</span></div>
+      <div class="pill"><span class="k">点赞</span><span class="v" id="hudLikes">0</span></div>
+      <div class="pill"><span class="k">礼物</span><span class="v" id="hudGifts">0</span></div>
+    </div>
+
+    <div class="titlebar" id="titlebar">小饭的打工日常 · <b>通宵改需求中</b></div>
+
+    <!-- 顶部左侧：直播间数据 -->
+    <div class="status-block">
+      <div class="stat-line">
+        <span>摸鱼 <b id="stSlack">0</b> 次</span><i>·</i>
+        <span>被抓 <b id="stCaught">0</b> 次</span><i>·</i>
+        <span>今日 <b id="stLines">0</b> 行</span>
+      </div>
+      <div class="chips">
+        <span class="chip speed">⚡ 手速 ×<b id="stSpeed">1.0</b></span>
+        <span class="chip mood" id="stMood">⌨ 专心工作中</span>
+        <span class="notice" id="stNotice"><i></i><span id="stNoticeText">摸鱼须知 · 再工作 05:00 可以休息</span></span>
+      </div>
+    </div>
+
+    <!-- 右上：今日绩效 -->
+    <div class="perf">
+      <div class="perf-h"><span>今日绩效</span><b id="perfPct">0%</b></div>
+      <div class="perf-bar"><i id="perfFill"></i></div>
+      <div class="perf-n"><b id="perfNow">0</b> / <span id="perfGoal">2400</span> 行</div>
+    </div>
+
+    <!-- 右上：正在放的歌（后端读到播放器在放歌才显示） -->
+    <div class="np" id="npBox">
+      <span class="np-icon">♪</span>
+      <div class="np-meta">
+        <div class="np-title" id="npTitle"></div>
+        <div class="np-artist" id="npArtist"></div>
+      </div>
+    </div>
+
+    <!-- 歌词（同步逐行，查不到歌词的歌不显示） -->
+    <div class="np-lyric" id="npLyric">
+      <div class="np-lyric-cur" id="npLyricCur"></div>
+      <div class="np-lyric-next" id="npLyricNext"></div>
+    </div>
+
+    <!-- 角色旁边：她在回谁 -->
+    <div class="bubble" id="bubble">
+      <span class="bu" id="bubUser"></span><span class="bt" id="bubText"></span>
+    </div>
+
+    <!-- 右下：刚刚发生的事 -->
+    <div class="event-col" id="eventCol"></div>
+
+    <!-- 左侧：进场欢迎特效。每个观众进来都要有一条，消息到就上屏，不排队 -->
+    <div class="welcome-layer" id="welcomeLayer"></div>
+
+    <!-- ================= 底部 ================= -->
+    <div class="botdeck">
+      <div class="dm-col" id="dmLayer"></div>
+
+      <div class="subtitle" id="subtitle">
+        <div class="who" id="subWho">小饭</div>
+        <div class="what" id="subText"></div>
+      </div>
+
+      <div class="taskline" id="taskline">
+        <span class="cur"></span>
+        <span id="taskText">正在写 <b>boss_requirement.py</b></span>
+        <span class="sep">·</span>
+        <span id="taskExtra">已返工 3 次</span>
+      </div>
+
+      <div class="deck-status">
+        <div class="row"><span class="sdot"></span><span id="sceneText">写代码中</span></div>
+        <div class="row"><span>已摸鱼</span><b id="slackTimer">00:00</b></div>
+      </div>
+    </div>
+
+    <div class="gift-banner" id="giftBanner">
+      <div class="ico" id="giftIco">🎁</div>
+      <div class="gd">
+        <div class="n" id="giftName">礼物</div>
+        <div class="t" id="giftUser">观众 送出了礼物</div>
+      </div>
+    </div>
+
+    <div class="poll" id="poll">
+      <div class="q" id="pollQ">投票</div>
+      <div id="pollOpts"></div>
+    </div>
+
+    <div class="flash" id="flash">
+      <div class="big" id="flashBig"></div>
+      <div class="sub" id="flashSub"></div>
+    </div>
+    <div class="boss-vignette"></div>
+    <div class="cut-flash" id="cutFlash"></div>
+
+    <div class="offline-tip" id="offlineTip">画面与后台失联，正在自动重连…</div>
+
+    <div class="boot-cover" id="bootCover">
+      <div class="ring"></div>
+      <div class="logo">小 饭 工 作 室</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/static/editor.js?v=4"></script>
+<script src="/static/pvz.js?v=3"></script>
+<script src="/static/snake.js?v=2"></script>
+<script src="/static/tetris.js?v=2"></script>
+<script src="/static/g2048.js?v=2"></script>
+<script src="/static/tank.js?v=2"></script>
+<script src="/static/cs.js?v=2"></script>
+<script src="/static/stage.js?v=4"></script>
+</body>
+</html>

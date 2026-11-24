@@ -1,0 +1,35 @@
+# 运行数据：浏览器 profile、TTS 缓存、开播证据、日志、截图，以及本地密钥文件
+# 这个目录每次运行都会重新生成，而且 data/.api_key 里有真实密钥，绝不能入库
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# WorkBuddy 的本地会话与项目笔记（含个人路径、账号信息）
+.workbuddy/
+.workbuddy-ai/
+
+# 本地配置备份
+config.local.yaml
+*.local
+
+# 日志
+*.log
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 虚拟显示器驱动的临时文件（如果哪天又试）
+*.cat.tmp

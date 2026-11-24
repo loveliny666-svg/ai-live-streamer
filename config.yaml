@@ -1,0 +1,329 @@
+# ============================================================
+#  AI 打工人直播间 · 总配置
+#  改完保存后，控制台点「热重载」即可生效（正在直播也不会断）
+# ============================================================
+
+app:
+  name: "小饭的打工直播间"
+  data_dir: "data"
+  log_level: "INFO"
+  # 每日自动收播时间，留空=不自动收播（24 小时挂机就留空）
+  shutdown_at: ""
+
+server:
+  host: "127.0.0.1"
+  port: 8735
+
+# ---------------- 智能体（唯一花钱的地方）----------------
+llm:
+  # provider 支持：agnes / openai / deepseek / moonshot / zhipu / qwen / groq /
+  #               openrouter / siliconflow / anthropic / gemini / ollama / mock
+  provider: "agnes"
+  # 密钥留空，从环境变量 LLM_API_KEY 读（app/llm/client.py 的 reload 支持）。
+  # 这个仓库是要开源出去的，配置文件里绝不能出现真实密钥。
+  # 本地设置：setx LLM_API_KEY "sk-..."  然后重开一个终端。
+  api_key: ""
+  api_key_env: "LLM_API_KEY"
+  # 留空则用 provider 默认地址；自建/中转填自己的 base_url
+  base_url: ""
+  model: "agnes-3.0-flash"
+  temperature: 0.85
+  max_tokens: 320
+  timeout_sec: 25
+  max_tool_rounds: 3
+  # 两次模型调用的最小间隔（秒）—— 控制成本的闸门
+  min_interval_sec: 1.0      # 两次调用模型的最小间隔；被节流的事件会留到下一轮，不会丢
+  # 平台 RPM 限额：免费用户 10 次/分钟，企业 20 次/分钟（2026-09 公告）。
+  # 填 9，只留一成余量——超了有本地模型接，不会空转，没必要卡太死。
+  rpm: 9
+  # 真被 429 了，歇多久再试（秒）
+  rate_limit_cooldown_sec: 60
+  # 每次塞进 prompt 的弹幕条数
+  context_events: 14
+  # 连续失败多少次后切到「兜底规则脑」
+  fail_threshold: 3
+  # 兜底后每隔多久探测一次模型是否恢复
+  recover_probe_sec: 90
+
+  # ---------------- 本地模型（Ollama）----------------
+  # 云端额度用完、或者云端挂了，由它接管「说一句话」这类简单回复。
+  # 它不做工具调用（切场景、写项目那些），那些仍然交给云端。
+  local:
+    enabled: true
+    provider: "ollama"
+    # 留空 = http://127.0.0.1:11434/v1
+    base_url: ""
+    # 装完 Ollama 后执行：ollama pull qwen3:8b
+    # 12GB 显存跑 8B 的 4bit 量化占 5GB 左右，剩下的够放上下文
+    model: "qwen3:8b"
+    temperature: 0.9
+    # 本地只回一句话，给多了它反而开始长篇大论
+    max_tokens: 120
+    timeout_sec: 15
+    # spill = 云端额度低于阈值才溢出到本地（保守，质量优先）
+    # split = 简单任务直接走本地，云端额度全留给复杂任务（省额度）
+    strategy: "spill"
+    # spill 模式下，云端剩余额度低于这个比例就把简单任务交给本地
+    spill_ratio: 0.4
+    # 本地连续失败几次就先歇着，别每条弹幕都卡一次超时
+    fail_threshold: 2
+    recover_probe_sec: 60
+    # 启动时先发一个空请求把模型压进显存，否则第一条弹幕要等它加载五秒
+    warmup: true
+    # -1 = 模型常驻显存不卸载。改成 0 会让它空闲五分钟就退出，
+    # 省显存但下一条弹幕要等三五秒重新加载，直播场景不划算
+    keep_alive: -1
+    # 关掉 Qwen3 的思考模式。开着的话它会先吐一大段推理，
+    # max_tokens 经常被吃光，最后一句正文都出不来（实测踩过）
+    think: false
+    # 重复惩罚。小模型容易照着上一句换个名字复读，调高一点会好一些
+    repeat_penalty: 1.15
+
+# ---------------- 人设 ----------------
+persona:
+  name: "小饭"
+  role: "被老板抓来通宵改需求的 AI 程序员"
+  # 说话风格（会拼进 system prompt）
+  # 注意：这里不要写「爱拿历史打比方」。讲历史要单独成段好好讲，
+  # 不能跟写代码/改需求/加班类比，否则模型会把历史讲成段子。
+  # 讲历史的规矩（只讲正面人物故事、不评价朝代兴衰、不碰民族话题）写在
+  # app/llm/prompt.py 的 build_system 里，改这里没用。
+  style: "口语、短句、话多，有点自嘲的幽默，偶尔吐槽产品经理，不用书面语，不用表情符号堆砌"
+  # 口头禅 / 固定梗，随机少量使用
+  catchphrases:
+    # 只留两条，而且代码里是「随机挑一条」而不是全列给模型。
+    # 原来 5 条全塞进 prompt，模型当成必念清单，「先摸五分钟鱼，就五分钟」
+    # 80 条发言里出现 10 次（12.5%）。那条已删。
+    - "这个需求很简单，怎么实现我不管"
+    - "能跑就行，别动它"
+  # 禁止说的话（简单过滤）
+  banned: ["微信", "加V", "私信我", "刷单", "返利", "赌博"]
+
+# ---------------- 弹幕 / 礼物 ----------------
+danmaku:
+  enabled: true
+  # 你的直播间网页地址，例如 https://live.douyin.com/123456789
+  # 直播伴侣「主播中心」里能看到自己的直播间链接
+  room_url: "https://live.douyin.com/552714470243"
+  # 多个源可同时开，自动去重合并
+  sources:
+    # 主源：旁听直播间网页的 WebSocket（CDP 只读，不改包、不碰签名）
+    # 进场/弹幕/礼物/点赞/关注 都是平台原样的 protobuf，带 msg_id，几十毫秒就到，
+    # 评论自带昵称，在线人数也是真的。
+    ws:
+      enabled: true
+      chrome_path: ""          # 留空自动找
+      headless: false          # 建议 false（无头更容易被风控）
+      # 旁听浏览器摆在哪。必须落在最右屏（2560..5120 × 0..1440），
+      # 别放到主屏或左屏上占地方。offscreen=false 才会回到 (0,0)。
+      offscreen: true
+      window_x: 3840
+      window_y: 20
+    # 备用：直接读直播伴侣右侧「互动消息」面板。ws 正常收帧时它完全不动。
+    ocr:
+      enabled: true
+      # 多久截一次面板（毫秒）。截图本身很便宜，画面没变就不跑 OCR
+      poll_ms: 200
+      # 两次 OCR 之间的最小间隔（秒）
+      interval_sec: 0.7
+      # 只读面板下面这一截（新消息从底部往上堆），省掉顶部留白
+      bottom_ratio: 0.45
+      # OCR 前缩放。1.0 比 0.8 稳（0.8 会把「诱导消费」读成「导滑费」）
+      scale: 1.0
+      # true = WebSocket 源正常时不跑 OCR；断了才顶上
+      fallback_only: true
+      # 留空=自动定位（靠识别「互动消息」四个字）
+      region: []
+    # 网页 DOM 注入：现在用不上了，留着给别的直播间兜底
+    dom:
+      enabled: false
+      chrome_path: ""
+      headless: false
+      poll_ms: 400
+      offscreen: true
+    simulator:
+      enabled: false
+      interval_sec: 12
+  # 同一条消息在多长时间内只算一次
+  dedupe_window_sec: 25
+  # 同一个观众两次进场之间的最小间隔（秒）。
+  # 进场是「每个观众都要欢迎」，所以窗口必须短；设 0 = 来几次弹几次
+  enter_dedupe_sec: 3
+  # 礼物金额低于这个值（抖币）不说话，只做特效
+  gift_silent_below: 1
+
+# ---------------- 语音 ----------------
+tts:
+  engine: "edge"          # edge | sapi | none
+  # Xiaoyi 是偏少女的活泼音色；+18Hz 刚好落在 333Hz，接近参考视频那个甜音
+  voice: "zh-CN-XiaoyiNeural"
+  pitch: "+18Hz"
+  rate: "+8%"
+  volume: "+0%"
+  # 用 ffmpeg 做一层轻润色（去闷/提亮/压动态），没有 ffmpeg 会自动跳过
+  polish: true
+  # 一条语音最多多少字，超了截断（省时间也省心）
+  max_chars: 85
+  # 同时在排队的语音上限，超出丢弃最旧的
+  queue_max: 4
+  # 页面播放失败时退回系统语音
+  fallback_sapi: true
+
+# ---------------- 系统音频闪避（主播说话时压低外部音乐）----------------
+# Apple Music 是独立进程，声音走系统混音，直播伴侣采集到的正是这个混音。
+# 这里按「音频会话」压低它的音量，说完再淡回原音量；不动系统主音量，
+# 也不动 Chrome（主播的人声和直播间网页都在 Chrome 里，压了就没声了）。
+audio:
+  duck:
+    enabled: true
+    # 只压这些进程。Windows 版 Apple Music 真正出声的是 AMPLibraryAgent.exe
+    targets: ["AMPLibraryAgent", "AppleMusic", "Music", "iTunes",
+              "cloudmusic", "QQMusic", "Spotify", "foobar2000", "PotPlayer"]
+    # 这些绝对不碰：舞台人声、直播伴侣采集、OBS
+    exclude: ["chrome", "msedge", "MediaSDK_Server", "obs", "webcast", "ApplicationFrameHost"]
+    level: 0.18            # 说话时压到原音量的 18%（0=全静音，1=不压）
+    fade_out_sec: 0.25     # 压低渐变时长
+    fade_in_sec: 0.60      # 说完淡回时长
+    hold_sec: 0.40         # 句尾多压一会儿，避免一句一抖
+    default_hold_sec: 8    # 舞台页没上报时的兜底时长
+    max_duck_sec: 30       # 单次最长压制，超时强制恢复，绝不把音乐一直压着
+
+# ---------------- 舞台画面 ----------------
+stage:
+  width: 1920
+  height: 1080
+  browser: "auto"         # auto | chrome | edge
+  # fullscreen = 全屏无边框，Chrome 全屏模式本身不画标题栏。
+  #   ⚠ 但虚拟屏（Virtual Display Driver）在当前 NVIDIA 驱动下有渲染缺陷：
+  #   窗口和客户区都是 1920x1080，PrintWindow 截出来也正常，但 DWM 桌面合成只画了
+  #   底部约 200px，上半整块是黑的。直播伴侣捕获到的是桌面而不是窗口内容，
+  #   于是推流画面变成「上半黑 + 下面一条舞台」。**先别用 fullscreen。**
+  # window     = 普通窗口，会带一条 Chrome 自绘标题栏（--force-dark-mode 压成深灰）。
+  mode: "window"
+  # 舞台窗口落点。5120,0 是虚拟屏左上角：必须在虚拟屏上「出生」，
+  # 全屏之后系统才认这块屏。填 0,0 会跑回主屏。
+  position: [5120, 0]
+  # 下面两个只有 window 模式会用（全屏模式挪不动窗口，别指望它们）
+  # offscreen_x: -7500
+  # offscreen_y: 0
+  # window 模式下用下面这组尺寸/位置（客户区大小，不含标题栏）
+  # 位置必须落在最右屏：2560..5120 × 0..1440。主屏(0..2560)和左屏(-3840..-768)不占。
+  window_width: 1600
+  window_height: 900
+  window_x: 2620
+  window_y: 40
+  # 舞台页 1 秒没心跳就重载
+  heartbeat_timeout_sec: 8
+  # 画面里显示的直播间标题
+  title: "小饭的打工日常 · 通宵改需求中"
+  # 背景音乐：没有互动时靠它填满声音，自带两段用 numpy 合成的 lo-fi（零版权）
+  # 想换成自己的歌：把 mp3 放进 app/stage/static/bgm/，再改下面的文件名
+  bgm:
+    # 关掉：直播间只保留 Apple Music 的声音，舞台页不再放自己的 lo-fi
+    enabled: false
+    volume: 0.30          # 0~1，垫在人声下面，别超过 0.4
+    coding: "calm.mp3"    # 写代码时
+    slack: "playful.mp3"  # 摸鱼时
+    boss: ""              # 老板来了不放音乐；留空就是静音
+  # 画面右上角显示「正在播放」的歌名（读 Apple Music 等播放器的播放条）
+  # 不想显示就改 enabled: false；用别的播放器就把窗口标题加进 window_titles
+  nowplaying:
+    enabled: true
+    # 歌词逐行同步显示：用 lrclib.net 的免费公益接口（无需 key，不花钱），
+    # 查不到的英文/小众歌就不显示歌词，只显示歌名。不想显示改 false
+    lyrics: true
+    window_titles: ["Apple Music", "Music", "Spotify", "网易云音乐", "QQ音乐", "酷狗音乐"]
+  # 进场欢迎特效：每个观众进来，画面左侧立刻弹一条，不等模型、不排队
+  welcome:
+    enabled: true
+    sound: true           # 进场「叮」一声（页面本地合成，不联网、零延迟）
+    duration_ms: 2800     # 单条停留多久
+    max_visible: 5        # 同时最多显示几条，超了挤掉最旧的
+
+# ---------------- 导演（场景调度）----------------
+director:
+  start_scene: "coding"
+  # 摸鱼小游戏池：每次摸鱼随机挑一个（尽量不跟上次重复）
+  # 可选：pvz=植物大战僵尸 / snake=贪吃蛇 / tetris=俄罗斯方块 / g2048=2048
+  # 只想玩其中几个就留哪几个
+  games: ["pvz", "snake", "tetris", "g2048"]
+  # coding = 认真写代码；slack = 摸鱼打游戏
+  coding:
+    min_sec: 150           # 写代码 2.5-6 分钟就摸一次鱼，观众不用等太久
+    max_sec: 360
+  slack:
+    min_sec: 90
+    max_sec: 200
+  # 是否允许智能体自己决定什么时候摸鱼
+  agent_can_switch: true
+  # 「老板来了」紧急切回写代码后保持多久
+  boss_key_hold_sec: 12
+  # 场景切换最短间隔，防止来回抽搐
+  switch_cooldown_sec: 20
+
+# ---------------- 互动策略 ----------------
+behavior:
+  # 主动说话：没人理的时候每隔多久自己找话题
+  # 18 秒 = 一分钟说三句，话痨但不至于吵；想更密就往下调，最低别低于 12
+  idle_talk_sec: 18
+  # 主动说话里，讲历史知识的比例（0~1）。0 = 只聊代码和摸鱼，1 = 句句讲历史
+  idle_history_ratio: 0.35
+  # 可选：自定义自言自语话题池，随机抽一条。填了就用你的，不再掺历史
+  # idle_topics: ["吐槽需求", "聊正在放的歌", "问问观众干嘛呢"]
+  # 每分钟最多回应几条弹幕（主动说话也算在内，防止刷屏）
+  max_replies_per_min: 10
+  # 同一个用户多久内不重复回（评论类）
+  same_user_cooldown_sec: 12
+  # 进场欢迎的冷却：同一批人进进出出不重复欢迎
+  enter_cooldown_sec: 45
+  # 进场欢迎
+  welcome_enter: true
+  # 关注感谢
+  thank_follow: true
+  # 礼物感谢阈值（抖币）
+  thank_gift_above: 5
+  # 大礼物（抖币）触发全屏特效 + 老板键
+  big_gift_above: 50
+  # 一次说多长。太长会语音排队，后面的人等太久
+  # 65 字约 18 秒语音，讲历史刚好够用；再长观众就跑了
+  reply_max_chars: 65
+
+# ---------------- 直播伴侣（自动开播）----------------
+companion:
+  enabled: true
+  # 直播伴侣的可执行文件路径。各人安装位置不同，开源版留空。
+  # 留空 = 不自动启动直播伴侣，需要你自己先打开它（程序仍然能识别并自动开播）。
+  # 想让它帮你启动，就填你自己的完整路径，比如：
+  #   exe_path: "C:/Program Files/直播伴侣/直播伴侣 Launcher.exe"
+  exe_path: ""
+  auto_launch: true
+  # 自动点「开始直播」
+  auto_start_live: true
+  # 手动开播模式。true = 不问不论直接认为在播，开播/巡检全交给人。
+  # 只有在 OCR 装不上时才该开：那时候识别不了按钮文字，程序会一直以为自己没开播，
+  # 每两分钟去点一次按钮。现在 OCR 可用（run.bat 已固定解释器），保持 false，
+  # 巡检才能真的发现掉播并自动重开。
+  assume_live: false
+  # 开播前切到哪个场景（留空=不动）
+  scene_name: "场景一"
+  # 点按钮的 OCR 置信度门槛
+  ocr_min_score: 0.55
+  # 单个动作重试次数
+  click_retries: 3
+  # 检测到这些字样说明没开播权限，直接告警别死磕
+  permission_keywords: ["申请开播权限", "暂无开播权限", "实名认证"]
+  # 掉线弹窗自动点这些字
+  recover_keywords: ["重新连接", "重试", "我知道了", "确定"]
+  # 每隔多久检查一次直播状态
+  health_check_sec: 45
+  # 直播中断后自动重开的冷却
+  restart_cooldown_sec: 120
+
+# ---------------- 安全 / 兜底 ----------------
+safety:
+  # 总开关：真出问题就只放画面不说话
+  mute_on_repeated_errors: true
+  # 连续错误多少次进入静默
+  error_budget: 8
+  # 日志保留天数
+  log_keep_days: 14
